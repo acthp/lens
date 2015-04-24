@@ -119,3 +119,56 @@
   (testing "should split on set"
       (let [csv-lens (string-join-lens \,)]
         (is (= (set csv-lens ["a" "b" "c"] "x,y,z") ["x" "y" "z"])))))
+
+;
+; Showing a reusable component w/o knowledge of how or where
+; its state is stored in the global state.
+;
+
+(def to-int-lens
+  (lens (fn [strs] (mapv #(Integer/parseInt %) strs))
+        (fn [_ ints-] (mapv (fn [x] (.toString x)) ints-))))
+
+(defn string-split-lens [c]
+  (let [pat (re-pattern (str "[" c "]"))]
+    (lens
+      (fn [arr] (clojure.string/split arr pat))
+      (fn [arr v] (clojure.string/join c v)))))
+
+(defn keys-to-vec-lens [keys]
+  (lens
+    (fn [hmap] ((apply juxt keys) hmap))
+    (fn [hmap v] (into hmap (map vector keys v)))))
+
+(defn mean-normalize [vs]
+  (let [mean (/ (reduce + vs) (count vs))]
+    (mapv #(- % mean) vs)))
+
+; A reusable component which normalizes a vector of numbers in the
+; global state. The lens can be bound to the global state in
+; various ways. Here we've used a side-effecting lens (hence not really
+; a lens) which ignores the "current state" param, to which we pass nil.
+(defn mean-normalize-component [lens]
+  (over lens nil (fn [vs] (mean-normalize vs))))
+
+(deftest component-reuse
+  (testing "normalizes vector in global state"
+    (let [state (atom [1 2 3])
+          ; Lens to update global state. Not technically a lens, because side-effects.
+          state-lens (lens (fn [_] @state) (fn [_ v] (swap! state (fn [_] v))))]
+      (mean-normalize-component state-lens)
+      (is (= @state [-1 0 1]))))
+
+  (testing "normalizes vector in csv in global state"
+    (let [state (atom "1,2,3")
+          state-lens (lens (fn [_] @state) (fn [_ v] (swap! state (fn [_] v))))
+          csv-lens (string-split-lens \,)]
+      (mean-normalize-component (comp state-lens csv-lens to-int-lens))
+      (is (= @state "-1,0,1"))))
+
+  (testing "normalizes vector split across global state"
+      (let [state (atom {:a 1 :b 2 :c 3})
+            state-lens (lens (fn [_] @state) (fn [_ v] (swap! state (fn [_] v))))
+            vec-lens (keys-to-vec-lens [:a :b :c])]
+        (mean-normalize-component (comp state-lens vec-lens))
+        (is (= @state {:a -1 :b 0 :c 1})))))
