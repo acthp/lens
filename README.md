@@ -1,6 +1,8 @@
 # lens
 
-Experiments with lenses.
+Experiments with lenses, following a discussion at Clojure/West.
+
+More [here](http://acthp.github.io/clojure/om/lenses/2015/04/24/cursors-and-lenses.html)
 
 ## License
 
