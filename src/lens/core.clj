@@ -21,4 +21,4 @@
   (:value ((lens (fn [_] (id v))) x)))
 
 (defn over [lens x f]
-  (:value ((lens (fn [y] (id (f y))) x))))
+  (:value ((lens (fn [y] (id (f y)))) x)))
