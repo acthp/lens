@@ -27,18 +27,16 @@
     (fn [x] (get x k))         ; getter
     (fn [x v] (assoc x k v)))) ; setter
 
-(defn string-join-lens [c]
-  (let [pat (re-pattern (str "[" c "]"))]
-    (lens
-      (fn [arr] (clojure.string/join c arr))
-      (fn [arr v] (clojure.string/split v pat)))))
+;
+; lens method unit tests.
+;
 
 (deftest lens-methods
   (testing "should get"
     (let [foo-lens (index-lens :foo)]
       (is (= (view foo-lens {:foo 5 :bar 7}) 5))
       (is (= (view foo-lens {:foo ["hello"] :bar 7}) ["hello"]))))
-  
+
   (testing "should set"
     (let [foo-lens (index-lens :foo)]
       (is (= (set foo-lens
@@ -50,7 +48,7 @@
                   12)
              {:foo 12 :bar 7}))))
 
- (testing "should compose"
+  (testing "should compose"
     (let [foo-lens (index-lens :foo)
           third-lens (index-lens 2)
           third-foo-lens (comp third-lens foo-lens)]
@@ -64,24 +62,20 @@
 
 (def ^:dynamic *test-runs* 100)
 
-(defn spy [msg x]
-  (println msg x)
-  x)
-
 (defn gen-max [generator max-size]
   (gen/sized
     (fn [size]
       (gen/resize (min size max-size) generator))))
 
 ;
-; Lens laws.
+; Lens laws for a sample lens.
 ; 
 
 ; set followed by get returns the set value.
 ; (get (set y x)) = x, for all x, y
 (defspec set-get
   *test-runs*
-  (let [first-lens (index-lens 0)]
+  (let [first-lens (index-lens 0)] ; lens over 1st element of a vector
     (prop/for-all
       [big (gen/such-that not-empty (gen/vector (gen-max gen/any 40)))
        small (gen-max gen/any 40)]
@@ -107,6 +101,16 @@
        small2 (gen-max gen/any 40)]
       (is= (view first-lens (set first-lens (set first-lens big small1) small2))
            small2))))
+
+;
+; example of a lens over an arbitrary transform.
+;
+
+(defn string-join-lens [c]
+  (let [pat (re-pattern (str "[" c "]"))]
+    (lens
+      (fn [arr] (clojure.string/join c arr))
+      (fn [arr v] (clojure.string/split v pat)))))
 
 (deftest split-lens
   (testing "should join on get"
